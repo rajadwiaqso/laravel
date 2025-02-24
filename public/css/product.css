@@ -1,0 +1,12 @@
+.product{
+    border: 1px solid black;
+    max-width: 40%;
+    padding: 16px;
+}
+.contents{
+    display: contents;
+}
+img{
+    width: 130px;
+    height: 80px;
+}
