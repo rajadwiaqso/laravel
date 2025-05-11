@@ -1,0 +1,25 @@
+.star {
+    font-size: 2em;
+    color: #ccc; /* Warna bintang tidak aktif */
+    cursor: pointer;
+  }
+  
+  .star.active {
+    color: gold; /* Warna bintang aktif */
+  }
+  .pagination .page-item.active .page-link {
+    background-color: #007bff; /* Warna biru utama Anda */
+    border-color: #007bff;
+    color: white;
+}
+
+.pagination .page-link:hover {
+    background-color: #e9ecef; /* Warna latar belakang saat hover */
+    color: #007bff;
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #6c757d;
+    background-color: #fff;
+    border-color: #dee2e6;
+}

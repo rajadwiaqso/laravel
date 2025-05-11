@@ -6,6 +6,7 @@ use App\Models\seller;
 use App\Models\SellerForm;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
@@ -22,6 +23,7 @@ class AdminController extends Controller
         $user->password = bcrypt('rajaa');
         $user->save();
         $form->delete();
+        Storage::delete('images/form/' . $form->img);
 
         $seller = new seller();
         $seller->name = $form->name;
@@ -35,7 +37,10 @@ class AdminController extends Controller
     }
     public function decline($id){
         $form = SellerForm::find($id);
+        
         $form->delete();
+        Storage::delete('images/form/' . $form->img);
+
         return redirect()->back();
     }
 }

@@ -2,32 +2,49 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\NewChatMessage;
 use App\Models\chat;
+use App\Models\trx;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ChatController extends Controller
 {
     
-    public function buyerChat($buyer, $seller, $trx){
+    public function buyerChat($trx){
 
-        $chats = chat::where('buyer_email', $buyer)->where('seller_email', $seller)->where('trx_id', $trx)->first();
+        $chats = chat::where('trx_id', $trx)->first();
 
         $allMessages = [];
 
-        $sellers = User::where('email', $seller)->first();
+        $seller_search = trx::where('trx_id', $trx)->first();
+
+        $sellers = User::where('email', $seller_search['seller_email'])->first();
+
+// dd(Auth::user());
+
+       
 
         if (is_null($chats)) {
             $chat = new chat();
-            $chat->buyer_email = $buyer;
-            $chat->seller_email = $seller;
             $chat->buyer_message = [];
+            $chat->buyer_email = Auth::user()->email;
+            $chat->seller_email = $seller_search['seller_email'];
             $chat->seller_message = [];
             $chat->message = '[]';
             $chat->trx_id = $trx;
             $chat->save();
 
+            
+
             return view('chat', compact('chat', 'allMessages', 'sellers'));
+        }
+        else{
+
+        if(Auth::user()->email != $chats['buyer_email']){
+            dd($chats);
+            redirect()->route('index');
         }
         else{
         // return dd($chat);
@@ -66,16 +83,19 @@ class ChatController extends Controller
 
 
         return view('chat', compact('chat', 'allMessages', 'sellers'));
+    }
         }
     }
 
 
 
 
-    public function sellerChat($buyer, $seller, $trx){
-        $chats = chat::where('buyer_email', $buyer)->where('seller_email', $seller)->where('trx_id', $trx)->first();
+    public function sellerChat($trx){
+        $chats = chat::where('trx_id', $trx)->first();
 
-        $buyers = User::where('email', $buyer)->first();
+        $buyer_search = trx::where('trx_id', $trx)->first();
+
+        $buyers = User::where('email', $buyer_search['buyer_email'])->first();
         
 
         $allMessages = [];
@@ -83,17 +103,21 @@ class ChatController extends Controller
 
         if (is_null($chats)) {
             $chat = new chat();
-            $chat->buyer_email = $buyer;
-            $chat->seller_email = $seller;
+            $chat->buyer_email = $buyers['email'];
+            $chat->seller_email = Auth::user()->email;
             $chat->buyer_message = [];
             $chat->seller_message = [];
             $chat->message = '[]';
             $chat->trx_id = $trx;
             $chat->save();
 
-            return view('chat', compact('chat', 'allMessages', 'buyers'));
+            return view('seller.chat', compact('chat', 'allMessages', 'buyers'));
         }
         else{
+            if(Auth::user()->email != $chats['seller_email']){
+                redirect()->route('index');
+            }
+            else{
         // return dd($chat);
         $chat = chat::find($chats->id);
 
@@ -129,6 +153,7 @@ class ChatController extends Controller
         $chat->seller_message = $sellerMessages;
 
         return view('seller.chat', compact('chat', 'allMessages', 'buyers'));
+    }
         }
     }
 
@@ -163,30 +188,36 @@ class ChatController extends Controller
 
 
 
-
     public function sendMessage(Request $request)
-    {
-        $message = chat::where('trx_id',$request->trx)->first();
+{
+    $message = Chat::where('trx_id',$request->trx)->firstOrFail();
+    $user = Auth::user();
+    $senderRole = $user->role;
+    $newMessageContent = $request->message;
+    $timestamp = now()->format('Y-m-d H:i:s'); // Terima timestamp dari request atau gunakan server time sebagai fallback
 
-        if ($request->role == 'buyer') {
-            $buyerMessages = $message->buyer_message ?? [];
-            $buyerMessages[] = [
-                'message' => $request->message,
-                'timestamp' => now()->format('Y-m-d H:i:s'), // Simpan waktu pengiriman
-            ];
-            $message->buyer_message = $buyerMessages;
-        } else {
-            $sellerMessages = $message->seller_message ?? [];
-            $sellerMessages[] = [
-                'message' => $request->message,
-                'timestamp' => now()->format('Y-m-d H:i:s'), // Simpan waktu pengiriman
-            ];
-            $message->seller_message = $sellerMessages;
-        }
-
-        $message->save();
-
-        return redirect()->back();
+    if ($senderRole == 'buyer') {
+        $buyerMessages = $message->buyer_message ?? [];
+        $buyerMessages[] = [
+            'message' => $newMessageContent,
+            'timestamp' => $timestamp,
+        ];
+        $message->buyer_message = $buyerMessages;
+    } else {
+        $sellerMessages = $message->seller_message ?? [];
+        $sellerMessages[] = [
+            'message' => $newMessageContent,
+            'timestamp' => $timestamp,
+        ];
+        $message->seller_message = $sellerMessages;
     }
+
+    $message->save();
+
+    // Broadcast event setelah pesan disimpan, gunakan timestamp yang sama
+    broadcast(new NewChatMessage($request->trx, $senderRole, $newMessageContent, $timestamp))->toOthers();
+
+    return response()->json(['status' => 'success', 'message' => 'Pesan terkirim']); // Kembalikan respons JSON
+}
 
 }

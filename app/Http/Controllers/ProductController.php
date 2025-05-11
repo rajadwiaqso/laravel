@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\seller;
 use App\Models\trx;
+use App\Models\User;
 use GuzzleHttp\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use App\Events\ProductStockUpdated;
 
 class ProductController extends Controller
 {
@@ -16,7 +19,8 @@ class ProductController extends Controller
 
     public function index($category){
         $products = Product::where('category', $category)->get();
-        return view('products', compact('products'));
+        
+        return view('products', compact('products', 'category'));
     }
 
 
@@ -90,7 +94,7 @@ class ProductController extends Controller
         if (is_null($request->img)) {
             $product->img = $product->img;
         }else{
-            Storage::delete('images', $product->img);
+            Storage::delete('images/' . $product->img);
 
             $imageName = time() . '.' . $request->img->extension();
 
@@ -111,16 +115,38 @@ class ProductController extends Controller
         $total->save(); 
     }
 
-    public function details($category, $store, $product){
-        $product = Product::where('category', $category)->where('store_name', $store)->where('produk_name', $product)->first();
+    public function details($category, $store, $product, $id_product){
+        $rating = trx::where('product', $product)
+        ->where('status', 'done')
+        ->where('id_product', $id_product)
+        ->where('category', $category)
+        ->latest()->paginate();
+        $product = Product::where('category', $category)->where('store_name', $store)->where('id', $id_product)->first();
+        
+       $i = 0;
+        foreach ($rating as $rate) {
+            
+            $buyers = User::where('email', $rate['buyer_email'])->first();
+            $rating[$i]['name'] .= $buyers['name'];
+            $i++;
+        }
+        
+        $buyers = 1;
+     
         if(is_null($product)){
             return redirect()->back();
         }
-        return view('products.details', compact('product'));
+        return view('products.details', compact('product', 'rating'));
     }
 
-    public function buy($category, $store, $product){
-        $data = Product::where('category', $category)->where('produk_name', $product)->where('store_name', $store)->first();
+    public function buy($category, $store, $product, $id){
+
+        if(Auth::guest()){
+            return redirect()->route('signin.view');
+            
+        }
+
+        $data = Product::where('category', $category)->where('produk_name', $product)->where('id', $id)->where('store_name', $store)->first();
         $seller = seller::where('name', $store)->first();
         $trx = new trx();
         $trx->buyer_email = Auth::user()->email;
@@ -129,17 +155,84 @@ class ProductController extends Controller
         $trx->price = $data->price;
         $trx->category = $data->category;
         $trx->status = 'pending';
-        $id = $data->id . $seller->id . $trx->id . uniqid();
-        $trx->trx_id = "TRX_$id";
+        $trx->status_date = ['pending' => now()->format('Y-m-d H:i:s')];
+        $trx->rating = 0;
+        $trx_id = $data->id . $seller->id . $trx->id . uniqid();
+        $trx->id_product = $id;
+        $trx->trx_id = "TRX_$trx_id";
         $trx->save(); 
 
         $data->stock--;
         $data->save();
 
         $seller->sold_total++;
-        $seller->credits += $data->price;
-        $seller->save();
+        $seller->save();     
+
+        broadcast(new ProductStockUpdated($data->id, $data->stock))->toOthers();
 
         return redirect()->route('index');
     }
+
+    public function ratingView($trx){
+        $data = trx::where('trx_id', $trx)->first();
+
+        return view('rating', compact('data'));
+    }
+
+    public function ratingPost($trx, Request $request){
+        $data = trx::where('trx_id', $trx)->first();
+        $data->rating = [
+            'rating' => $request->rating,
+            'message' => $request->message,
+            'date' => now()->format('Y-m-d H:i:s')
+        ];
+        $data->save();
+        return redirect()->route('index');
+    }
+
+    public function categoryProducts(Category $category)
+    {
+        $products = Product::where('category', $category->name)->paginate(12); // Contoh pagination
+        return view('products.category', compact('category', 'products'));
+        
+    }
+
+    public function searchProducts(Request $request)
+    {
+        $query = $request->input('query');
+
+        if (!$query) {
+            return redirect()->route('index'); // Atau tampilkan semua produk
+        }
+
+        if(Auth::check())
+{
+    if (Auth::user()->role == 'buyer') {
+        $products = Product::where('produk_name', 'like', "%$query%")
+        ->orWhere('category', 'like', "%$query%")
+        ->paginate(12); // Contoh pagination
+
+        return view('products.search_results', compact('products', 'query'));
+    } else if (Auth::user()->role == 'seller') {
+        
+        $products = Product::where('store_name', Auth::user()->name)->where('produk_name', 'like', "%$query%")
+        ->orWhere('category', 'like', "%$query%")
+        ->paginate(12); // Contoh pagination
+
+        return view('products.search_results', compact('products', 'query'));
+    }
+    else{
+        dd($query); // Atau tampilkan semua produk
+    }
+}
+else{
+    $products = Product::where('produk_name', 'like', "%$query%")
+    ->orWhere('category', 'like', "%$query%")
+    ->paginate(12); // Contoh pagination
+
+return view('products.search_results', compact('products', 'query'));
+}
+        
+    }
+
 }

@@ -16,8 +16,16 @@ class BuyerMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
+
+        // if(Auth::user()->is_verified == false){
+        //     return redirect()->route('verify.view');
+        // }
+        // else{
+        
+        
         if(Auth::user()->role == 'buyer'){
-            
+
+         
             return $next($request);
         }
         
@@ -28,5 +36,7 @@ class BuyerMiddleware
         else if (Auth::user()->role == 'seller'){
             return redirect()->route('seller.index');
         }
+    // }
+        return redirect()->route('signin.view');
     }
 }

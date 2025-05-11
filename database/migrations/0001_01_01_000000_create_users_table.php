@@ -36,6 +36,10 @@ return new class extends Migration
             $table->longText('payload');
             $table->integer('last_activity')->index();
         });
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('verification_code')->nullable()->after('email');
+            $table->boolean('is_verified')->default(false)->after('verification_code');
+        });
     }
 
     /**
@@ -46,5 +50,8 @@ return new class extends Migration
         Schema::dropIfExists('users');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn(['verification_code', 'is_verified']);
+        });
     }
 };

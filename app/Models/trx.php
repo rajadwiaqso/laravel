@@ -7,6 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class trx extends Model
 {
     protected $fillable = [
-        'buyer_email', 'seller_email', 'category', 'product', 'price', 'status', 'trx_id'
+        'buyer_email', 'seller_email', 'category', 'product', 'price', 'status', 'trx_id', 'rating', 'status_date'
+    ];
+
+    protected $casts = [
+        'rating' => 'array',
+        'status_date' => 'array'
     ];
 }

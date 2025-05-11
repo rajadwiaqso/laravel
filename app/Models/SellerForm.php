@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class SellerForm extends Model
 {
     protected $fillable = [
-        'name', 'email', 'img', 'message'
+        'name', 'email', 'img', 'message', 'form'
     ];
   
 }

@@ -2,9 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Models\Category;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,11 +16,19 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Raja',
-            'email' => 'raja@raja.com',
-            'password' => bcrypt('raja'),
-            'role' => 'admin'
-        ]);
+        $categories = [
+            ['name' => 'pubg'],
+            ['name' => 'roblox'],
+            ['name' => 'mobile-legends'],
+            ['name' => 'free-fire'],
+            
+        ];
+
+        foreach ($categories as $category) {
+            Category::create([
+                'name' => $category['name'],
+                'slug' => Str::slug($category['name']),
+            ]);
     }
+}
 }
