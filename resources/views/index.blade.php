@@ -115,9 +115,18 @@
 
 @section('konten')
 
+@if (session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    
+@endif
+
     <section class="hero text-center">
         <div class="container">
-            <h1 class="mb-4">Selamat Datang, {{ Auth::user()->name ?? ''}} di {{env('APP_NAME')}}!</h1>
+            <h1 class="mb-4">Selamat Datang, {{ Auth::user()->name ?? ''}} di
+{{config('app.name')}}!</h1>
             <p class="lead">Temukan berbagai produk berkualitas dengan harga terbaik.</p>
             <div class="input-group mt-4 shadow-sm justify-content-center" style="max-width: 600px;">
                 <input type="search" class="form-control search-input" id="search-input" placeholder="Cari produk atau kategori...">
@@ -175,9 +184,9 @@
     </section>
    
     
-    <div class="container my-5 text-center">
+    {{-- <div class="container my-5 text-center">
         <a href="{{ route('buyer.orders') }}" class="btn btn-primary btn-lg" style="border-radius: 30px;">Top Up Resmi</a>
-    </div>
+    </div> --}}
     
 @endsection
 

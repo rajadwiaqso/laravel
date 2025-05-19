@@ -82,7 +82,11 @@ class ProductController extends Controller
     }
 
     public function edit($id){
-        $product = Product::find($id);
+        $seller = seller::where('email', Auth::user()->email)->first();
+        $product = Product::where('id', $id)->where('store_name', $seller->name)->first();
+        if(is_null($product)){
+            return redirect()->back();
+        }
         return view('seller.edit', compact('product'));
     }
 
@@ -116,12 +120,18 @@ class ProductController extends Controller
     }
 
     public function details($category, $store, $product, $id_product){
+        
         $rating = trx::where('product', $product)
         ->where('status', 'done')
         ->where('id_product', $id_product)
         ->where('category', $category)
         ->latest()->paginate();
         $product = Product::where('category', $category)->where('store_name', $store)->where('id', $id_product)->first();
+
+        // $seller = seller::where('name', $store)->first();
+        // if($seller)
+        
+
         
        $i = 0;
         foreach ($rating as $rate) {
@@ -131,7 +141,7 @@ class ProductController extends Controller
             $i++;
         }
         
-        $buyers = 1;
+        // $buyers = 1;
      
         if(is_null($product)){
             return redirect()->back();
@@ -139,20 +149,33 @@ class ProductController extends Controller
         return view('products.details', compact('product', 'rating'));
     }
 
-    public function buy($category, $store, $product, $id){
+    public function buy(Request $request,$category, $store, $product, $id){
 
-        if(Auth::guest()){
-            return redirect()->route('signin.view');
-            
-        }
+        
 
         $data = Product::where('category', $category)->where('produk_name', $product)->where('id', $id)->where('store_name', $store)->first();
         $seller = seller::where('name', $store)->first();
+
+
+        // if($seller->email == Auth::user()->email){
+        //     return redirect()->route('index')->with('error', 'Tidak bisa membeli produk sendiri');
+        // }
+
+        if($data->stock < $request->quantity){
+            return redirect()->route('index')->with('error', 'Stok tidak mencukupi');
+        }
+        if($request->quantity < 1){
+            return redirect()->route('index')->with('error', 'Jumlah tidak valid');
+        }
         $trx = new trx();
         $trx->buyer_email = Auth::user()->email;
         $trx->seller_email = $seller->email;
         $trx->product = $data->produk_name;
         $trx->price = $data->price;
+
+        $trx->quantity = $request->quantity;
+        $trx->total = $request->total_amount;
+        
         $trx->category = $data->category;
         $trx->status = 'pending';
         $trx->status_date = ['pending' => now()->format('Y-m-d H:i:s')];
@@ -162,19 +185,66 @@ class ProductController extends Controller
         $trx->trx_id = "TRX_$trx_id";
         $trx->save(); 
 
-        $data->stock--;
+        $data->stock = $data->stock - $request->quantity;
         $data->save();
 
-        $seller->sold_total++;
+        $seller->sold_total = $seller->sold_total + $request->quantity;
         $seller->save();     
 
         broadcast(new ProductStockUpdated($data->id, $data->stock))->toOthers();
 
-        return redirect()->route('index');
+        return redirect()->route('payment.success', $trx->trx_id);
+
+      
+    }
+    public function paymentSuccess($trx){
+        $data = trx::where('trx_id', $trx)->first();
+        if(is_null($data)){
+            return redirect()->back();
+        }
+        return view('payments.success', compact('data'));
     }
 
+    public function payment(Request $request , $category, $store, $product, $id_product){
+
+        if(Auth::guest()){
+            return redirect()->route('signin.view');
+            
+        }
+        $kuantitas = $request->kuantitas;
+        
+       
+
+        $data = Product::where('category', $category)->where('produk_name', $product)->where('id', $id_product)->where('store_name', $store)->first();
+        
+        $total = $data->price * $kuantitas;
+
+        $seller = seller::where('name', $store)->first();
+        if($seller->email == Auth::user()->email){
+            return redirect()->route('index')->with('error', 'Tidak bisa membeli produk sendiri');
+        }
+        if($data->stock < $kuantitas){
+            return redirect()->route('index')->with('error', 'Stok tidak mencukupi');
+        }
+        if($kuantitas < 1){
+            return redirect()->route('index')->with('error', 'Jumlah tidak valid');
+        }
+
+        if(is_null($data)){
+            return redirect()->back();
+        }
+        return view('payments.product', compact('data', 'kuantitas', 'total'));
+    }
+   
     public function ratingView($trx){
-        $data = trx::where('trx_id', $trx)->first();
+
+          $data = trx::where('trx_id', $trx)->first();
+
+        if (Auth::user()->email != $data->buyer_email) {
+            return redirect()->back();
+        }
+        
+      
 
         return view('rating', compact('data'));
     }
@@ -216,7 +286,7 @@ class ProductController extends Controller
     } else if (Auth::user()->role == 'seller') {
         
         $products = Product::where('store_name', Auth::user()->name)->where('produk_name', 'like', "%$query%")
-        ->orWhere('category', 'like', "%$query%")
+        ->orWhere('category', 'like', "%$query%")->where('store_name', Auth::user()->name)
         ->paginate(12); // Contoh pagination
 
         return view('products.search_results', compact('products', 'query'));

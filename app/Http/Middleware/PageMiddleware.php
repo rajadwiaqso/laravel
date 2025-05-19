@@ -20,15 +20,6 @@ class PageMiddleware
          
            
         
-        if(Auth::user()->role == 'buyer'){
-            return $next($request);
-        }
-        else if (Auth::user()->role == 'admin'){
-            return redirect()->route('admin.index');
-        }
-        else if (Auth::user()->role == 'seller'){
-            return redirect()->route('seller.index');
-        }
     }
         return $next($request);
         

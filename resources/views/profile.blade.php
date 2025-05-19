@@ -21,13 +21,49 @@
 
         <div class="row">
             <!-- Informasi Dasar -->
-            <div class="col-md-6">
+            <div class="col-md-12">
                 <div class="card shadow-sm mb-4 border-0">
                     <div class="card-header bg-primary text-white text-center">
                         <i class="bi bi-person-circle fs-4"></i> Informasi Dasar
                     </div>
                     <div class="card-body">
-                        <p class="mb-2"><strong>Nama:</strong> {{ Auth::user()->name }}</p>
+                        {{-- foto profil --}}
+                        <div class="mb-2">
+                            @if (Auth::user()->role == 'seller')
+                                <img src="{{ asset('storage/images/profile/' . $seller->profile_picture) }}" alt="Foto Profil" class="rounded-circle" style="width: 100px; height: 100px;">
+
+                                     <form action="{{route('seller.profile.picture', $seller->id)}}" method="post" enctype="multipart/form-data" class="mt-2">
+                                {{-- enctype="multipart/form-data" --}}
+                                @csrf
+                                <div class="mb-3 mt-2">
+                                    <label for="profile_picture" class="form-label">Ganti Foto Profil Seller:</label>
+                                    <input type="file" class="form-control" name="profile_picture" id="profile_picture">
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Simpan Perubahan</button>
+                            </form>
+
+                            @else
+
+                            @if (Auth::user()->profile_picture)
+                                <img src="{{ asset('storage/images/profile/' . Auth::user()->profile_picture) }}" alt="Foto Profil" class="rounded-circle" style="width: 100px; height: 100px;">
+                            @else
+                                <img src="{{ asset('storage/images/profile/default.jpg') }}" alt="Foto Profil" class="rounded-circle" style="width: 100px; height: 100px;">
+                            @endif
+                       
+                            <form action="{{route('profile.picture', Auth::user()->id)}}" method="post" enctype="multipart/form-data" class="mt-2">
+                                {{-- enctype="multipart/form-data" --}}
+                                @csrf
+                                <div class="mb-3 mt-2">
+                                    <label for="profile_picture" class="form-label">Ganti Foto Profil Buyer:</label>
+                                    <input type="file" class="form-control" name="profile_picture" id="profile_picture">
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Simpan Perubahan</button>
+                            </form>
+                                 @endif
+                        </div>
+
+                        <p class="mb-2"><strong>Name:</strong> {{ Auth::user()->name }}</p>
+                        <p class="mb-2"><strong>Username:</strong> {{ '@' . Auth::user()->username }}</p>
                         <p class="mb-2"><strong>Email:</strong> {{ Auth::user()->email }}</p>
                         <p class="mb-2"><strong>Role:</strong> {{ Auth::user()->role }}</p>
                         <p class="mb-0"><strong>Bergabung Sejak:</strong> {{ Auth::user()->created_at->format('d M Y') }}</p>
@@ -36,6 +72,12 @@
             </div>
 
             <!-- Ubah Nama -->
+            
+
+        <!-- Ubah Password -->
+        <div class="row">
+
+
             <div class="col-md-6">
                 <div class="card shadow-sm mb-4 border-0">
                     <div class="card-header bg-success text-white text-center">
@@ -56,10 +98,9 @@
                     </div>
                 </div>
             </div>
-        </div>
+       
 
-        <!-- Ubah Password -->
-        <div class="row">
+
             <div class="col-md-6">
                 <div class="card shadow-sm mb-4 border-0">
                     <div class="card-header bg-warning text-white text-center">
@@ -92,7 +133,7 @@
             </div>
 
             <!-- Informasi Tambahan -->
-            <div class="col-md-6">
+            {{-- <div class="col-md-6">
                 <div class="card shadow-sm mb-4 border-0">
                     <div class="card-header bg-info text-white text-center">
                         <i class="bi bi-geo-alt fs-4"></i> Informasi Tambahan
@@ -101,7 +142,8 @@
                         <p class="text-muted">Belum ada informasi tambahan yang ditambahkan.</p>
                     </div>
                 </div>
-            </div>
+            </div> --}}
+            
         </div>
     </div>
 @endsection

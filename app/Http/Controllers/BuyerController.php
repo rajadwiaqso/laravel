@@ -11,15 +11,35 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\VerificationMail;
+// use Illuminate\Support\Facades\Mail;
+// use App\Mail\VerificationMail;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use App\Services\EmailApiService;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class BuyerController extends Controller
 {
+    protected $emailApiService;
+
+    public function __construct(EmailApiService $emailApiService)
+    {
+        $this->emailApiService = $emailApiService;
+    }
+
+    public function profileView($username){
+        $user = User::where('username', $username)->first();
+        if (!$user) {
+            return redirect()->route('index')->with('failed', 'User not found.');
+        }
+        return view('users.profile', compact('user'));
+    }
+
+
     public function profile(){
-        return view('profile');
+        $seller = seller::where('email', Auth::user()->email)->first();
+        return view('profile', compact('seller'));
     }
     // public function updateProfile(Request $request, User $users){
     //     
@@ -36,6 +56,38 @@ class BuyerController extends Controller
             $user->name = $request->name;
             $user->save();
             return redirect()->back()->with('success', 'Profile updated successfully.');
+        }
+        else{
+            return redirect()->route(404);
+        }
+    }
+
+    public function updateProfilePicture(Request $request, $id)
+    {
+        $user = User::find($id);
+
+        if (Auth::user()->id ==  $user->id){
+            $request->validate([
+                'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif',
+            ]);
+
+            // dd($request->profile_picture);
+            // Hapus gambar lama jika ada
+            if ($user->profile_picture != 'default.jpg') {
+                Storage::delete('images/profile/' . $user->profile_picture);
+            }
+
+            // Simpan gambar baru
+            $imageName = Auth::user()->username . '_' . time() . '.' . $request->profile_picture->extension();
+            $request->profile_picture->storeAs('images/profile', $imageName);
+
+            // dd($imageName);
+
+            // Update nama gambar di database
+            $user->profile_picture = $imageName;
+            $user->save();
+
+            return redirect()->back()->with('success', 'Profile picture updated successfully.');
         }
         else{
             return redirect()->route(404);
@@ -61,6 +113,8 @@ class BuyerController extends Controller
     }
 
          // Tampilkan halaman utama dengan kategori dan produk unggulan
+
+            //   session(['user_type' => 'buyer']);
         
         return view('index', compact('users', 'categories', 'featuredProducts'));
     }
@@ -69,53 +123,116 @@ class BuyerController extends Controller
     }
   
 public function signUpPost(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'email' => ['required', 'email', 'max:255'], // Validasi email
-        'name' => 'required', 
-        'password' => 'required',
-    ]);
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => ['required', 'email', 'max:255'],
+            'name' => 'required',
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('users')->ignore($request->id),
 
-    if ($validator->fails()) {
-        return redirect()->back()->with('failed', 'Invalid input. Please try again.');
-    }
+            ],
+            'password' => 'required',
+        ]);
 
-    // Cek apakah email sudah terdaftar
-    $existingUser = User::where('email', $request->email)->first();
-
-    if ($existingUser) {
-        if (!$existingUser->is_verified) {
-            // Jika email belum diverifikasi, arahkan ke halaman verifikasi
-             Auth::login($existingUser);
-            return redirect()->route('verify.view')->with('warning', 'Your email is not verified. Please verify your email.');
-        } else {
-            // Jika email sudah diverifikasi, kembalikan dengan pesan error
-            return redirect()->back()->with('failed', 'Email is already registered and verified.');
+        if ($validator->fails()) {
+            return redirect()->back()->with('failed', 'Username or Email already taken');
         }
+
+        $existingUser = User::where('email', $request->email)->first();
+
+        if ($existingUser) {
+            if (!$existingUser->is_verified) {
+                Auth::login($existingUser);
+                return redirect()->route('verify.view')->with('warning', 'Your email is not verified. Please verify your email.');
+            } else {
+                return redirect()->back()->with('failed', 'Email is already registered and verified.');
+            }
+        }
+
+        $verificationCode = rand(100000, 999999);
+
+        $users = new User();
+        $users->name = $request->name;
+        $users->username = $request->username;
+        $users->profile_picture = 'default.jpg';
+        $users->email = $request->email;
+        $users->password = bcrypt($request->password);
+        $users->role = 'buyer';
+        $users->verification_code = $verificationCode;
+        $users->is_verified = false;
+        $users->save();
+
+        Auth::login($users);
+
+           
+    session(['otp_last_sent' => now()]);
+
+        // Kirim email verifikasi menggunakan EmailApiService
+        $subject = 'Verifikasi Email Anda';
+        $body = view('emails.emails', ['verificationCode' => $verificationCode])->render(); // Render view email
+        $fromEmail = env('MAIL_FROM_ADDRESS'); // Ambil alamat pengirim dari .env
+        $fromName = env('APP_NAME'); // Ambil nama aplikasi dari .env (opsional, bisa dikonfigurasi di service)
+
+        $this->emailApiService->sendEmail($users->email, $subject, $body, $fromEmail, $fromName);
+
+        return redirect()->route('verify.view')->with('success', 'Registration successful. Please check your email for the verification code.');
     }
 
-    // Generate kode verifikasi
-    $verificationCode = rand(100000, 999999);
-
-    // Simpan user ke database
-    $users = new User();
-    $users->name = $request->name;
-    $users->email = $request->email;
-    $users->password = bcrypt($request->password);
-    $users->role = 'buyer';
-    $users->verification_code = $verificationCode; // Simpan kode verifikasi
-    $users->is_verified = false; // Set status verifikasi ke false
-    $users->save();
-
-    // Kirim email verifikasi
-    Mail::to($users->email)->send(new VerificationMail($verificationCode));
-
-    Auth::login($users);
-    // Redirect to verification page with success message
+    public function resendVerify(Request $request)
+{
     
 
-    return redirect()->route('verify.view')->with('success', 'Registration successful. Please check your email for the verification code.');
+
+    $user = User::where('email', Auth::user()->email)->first();
+
+    $lastSent = session('otp_last_sent');
+
+     if ($lastSent) {
+    $currentTime = now();
+    $remainingSeconds = $currentTime->diffInSeconds(Carbon::parse($lastSent)); 
+
+    $remainingSeconds = abs($remainingSeconds);
+  
+
+
+
+    if ($remainingSeconds < 60) {
+        $wait = 60 - $remainingSeconds;
+        $wait = ceil($wait); // Membulatkan ke atas
+        return redirect()->back()->with('warning', 'Harap tunggu ' . $wait . ' detik...')->with('wait_time', $wait);
+    }
 }
+
+
+
+    if (!$user) {
+        return redirect()->back()->with('failed', 'Email not found.');
+    }
+
+    // Generate new verification code
+    $verificationCode = rand(100000, 999999);
+    $user->verification_code = $verificationCode;
+    $user->save();
+
+    session(['otp_last_sent' => now()]);
+
+    // Send verification email again
+    $subject = 'Verifikasi Email Anda';
+    $body = view('emails.emails', ['verificationCode' => $verificationCode])->render(); // Render view email
+    $fromEmail = env('MAIL_FROM_ADDRESS'); // Ambil alamat pengirim dari .env
+    $fromName = env('APP_NAME'); // Ambil nama aplikasi dari .env (opsional, bisa dikonfigurasi di service)
+    
+    $this->emailApiService->sendEmail($user->email, $subject, $body, $fromEmail, $fromName);
+
+
+
+    return redirect()->route('verify.view')->with('success', 'Verification code sent to your email.');
+}
+
+
 public function verify()
 {
     if (Auth::user()->is_verified == true){
@@ -146,6 +263,7 @@ public function verifyEmail(Request $request)
 }
 
 
+
     public function signInView(){
         return view('signin');
     }
@@ -168,11 +286,8 @@ public function verifyEmail(Request $request)
         if(Auth::user()->role == 'admin'){
             return redirect()->route('admin.index');
         }
-        else if (Auth::user()->role == 'seller'){
-            return redirect()->route('seller.index');
-        }
         else{
-            return redirect()->route('index');
+            return redirect()->route('choose');
         }
     }
 
@@ -226,9 +341,84 @@ public function sendResetOtp(Request $request)
 
 
     session(['email' => $request->email]); 
+    session(['otp_last_sent' => now()]);
 
     // Send OTP via email
-    Mail::to($user->email)->send(new VerificationMail($otp));
+    
+    $subject = 'Password Reset OTP';
+    $body = view('emails.emails', ['verificationCode' => $otp])->render(); // Render view email
+    $fromEmail = env('MAIL_FROM_ADDRESS'); // Ambil alamat pengirim dari .env
+    $fromName = env('APP_NAME'); // Ambil nama aplikasi dari .env (opsional, bisa dikonfigurasi di service)
+    $this->emailApiService->sendEmail($request->email, $subject, $body, $fromEmail, $fromName);
+
+    return redirect()->route('password.reset.view')->with('success', 'OTP sent to your email.');
+}
+
+public function sendResetOtpAgain(Request $request)
+{
+    $email = session('email');
+    $lastSent = session('otp_last_sent');
+    $now = now();
+  
+
+// dd($lastSent, $now, $now->diffInSeconds(($lastSent)));
+
+// dd($lastSent, $now, $now->diffInSeconds($lastSent));
+
+
+
+    // if ($lastSent) {
+    //     $diffInSeconds = $now->diffInSeconds(Carbon::parse($lastSent));
+    //     if ($diffInSeconds < 60) {
+    //         // ... tampilkan pesan tunggu ...
+    //         dd($diffInSeconds);
+    //     }
+    // }
+
+    if ($lastSent) {
+    $currentTime = now();
+    $remainingSeconds = $currentTime->diffInSeconds(Carbon::parse($lastSent)); 
+
+    $remainingSeconds = abs($remainingSeconds);
+  
+
+
+
+    if ($remainingSeconds < 60) {
+        $wait = 60 - $remainingSeconds;
+        $wait = ceil($wait); // Membulatkan ke atas
+        return redirect()->back()->with('warning', 'Harap tunggu ' . $wait . ' detik...')->with('wait_time', $wait);
+    }
+}
+
+
+    // Cek apakah sudah 60 detik sejak pengiriman terakhir
+    // if ($lastSent && $now->diffInSeconds(Carbon::parse($lastSent)) < 60) {
+    //     $wait = 60 - $now->diffInSeconds($lastSent);
+    //     $wait = ceil($wait); // Membulatkan ke atas
+    //      return redirect()->back()->with('failed', 'Harap tunggu ' . (60 - $now->diffInSeconds($lastSent)) . ' detik sebelum mengirim ulang OTP.');
+    // }
+   
+
+    $user = User::where('email', $email)->first();
+
+    if (!$user) {
+        return redirect()->back()->with('failed', 'Email not found.');
+    }
+
+    // Generate OTP
+    $otp = rand(100000, 999999);
+    $user->verification_code = $otp;
+    $user->save();
+
+    session(['otp_last_sent' => now()]); // Update waktu pengiriman OTP
+
+    // Send OTP via email
+    $subject = 'Password Reset OTP';
+    $body = view('emails.emails', ['verificationCode' => $otp])->render();
+    $fromEmail = env('MAIL_FROM_ADDRESS');
+    $fromName = env('APP_NAME');
+    $this->emailApiService->sendEmail($email, $subject, $body, $fromEmail, $fromName);
 
     return redirect()->route('password.reset.view')->with('success', 'OTP sent to your email.');
 }
@@ -287,12 +477,18 @@ public function changePassword(Request $request, $id){
     
         $perPage = $request->input('perPage',10);
         $orders = trx::where('buyer_email', Auth::user()->email)->latest()->paginate($perPage);
+   
         
        $i = 0;
        
         foreach ($orders as $order) {
             
-            $seller = User::where('email', $order['seller_email'])->first();
+            $seller = Seller::where('email', $order['seller_email'])->first();
+            $product = Product::where('id', $order['id_product'])->first();
+            $orders[$i]['product'] = $product['produk_name'];
+            $orders[$i]['category'] = $product['category'];
+            $orders[$i]['store'] = $order['store_name'];
+            $orders[$i]['id'] = $product['id'];
             $orders[$i]['name'] = $seller['name'];
             $i++;
             
@@ -320,13 +516,13 @@ public function changePassword(Request $request, $id){
         // 
 
         $products = Product::where('id', $trx->id_product)->first();
-        $products->sold += 1;
+        $products->sold += $trx->quantity;
         $products->save();
 
         // 
         $seller = seller::where('email', $trx->seller_email)->first();
-        $seller->credits += $trx->price;
-        $seller->diproses -= $trx->price;
+        $seller->credits += $trx->total;
+        $seller->diproses -= $trx->total;
         $seller->save();
 
         // 

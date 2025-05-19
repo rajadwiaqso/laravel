@@ -43,8 +43,8 @@ class ChatController extends Controller
         else{
 
         if(Auth::user()->email != $chats['buyer_email']){
-            dd($chats);
-            redirect()->route('index');
+            
+            return redirect()->route('index');
         }
         else{
         // return dd($chat);

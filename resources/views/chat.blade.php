@@ -81,66 +81,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fungsi untuk menambahkan pesan ke tampilan
     function addMessageToChat(messageData, isLocal = false) {
-        const existingMessage = document.querySelector(`.message-box[data-timestamp="${messageData.timestamp}"]`);
-        if (!existingMessage) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('d-flex', 'mb-2', messageData.sender === currentUserRole ? 'justify-content-end' : 'justify-content-start');
-            const messageBox = document.createElement('div');
-            messageBox.classList.add('message-box', messageData.sender === currentUserRole ? 'buyer' : 'seller');
-            messageBox.dataset.timestamp = messageData.timestamp;
-            const messageParagraph = document.createElement('p');
-            messageParagraph.classList.add('mb-0');
-            messageParagraph.textContent = messageData.message;
-            const timestampSmall = document.createElement('small');
-            timestampSmall.classList.add('text-muted');
-            const formattedTime = new Date(messageData.timestamp).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: 'numeric' });
-            timestampSmall.textContent = formattedTime;
 
-            messageBox.appendChild(messageParagraph);
-            messageBox.appendChild(timestampSmall);
-            messageDiv.appendChild(messageBox);
-            chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
+        if (messageData.sender === currentUserRole && !isLocal) {
+        return;
     }
 
+
+    const existingMessage = document.querySelector(`.message-box[data-timestamp="${messageData.timestamp}"]`);
+    if (existingMessage) return; // Jangan tambahkan jika pesan sudah ada
+
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('d-flex', 'mb-2', messageData.sender === currentUserRole ? 'justify-content-end' : 'justify-content-start');
+    const messageBox = document.createElement('div');
+    messageBox.classList.add('message-box', messageData.sender === currentUserRole ? 'buyer' : 'seller');
+    messageBox.dataset.timestamp = messageData.timestamp;
+    const messageParagraph = document.createElement('p');
+    messageParagraph.classList.add('mb-0');
+    messageParagraph.textContent = messageData.message;
+    const timestampSmall = document.createElement('small');
+    timestampSmall.classList.add('text-muted');
+    const formattedTime = new Date(messageData.timestamp).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: 'numeric' });
+    timestampSmall.textContent = formattedTime;
+
+    messageBox.appendChild(messageParagraph);
+    messageBox.appendChild(timestampSmall);
+    messageDiv.appendChild(messageBox);
+    chatContainer.appendChild(messageDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
     // Listen untuk pesan baru dari WebSocket
-    window.Echo.channel(`chat.${trxId}`)
-        .listen('.chat.message.new', (e) => {
-            console.log('Pesan baru diterima:', e);
-            addMessageToChat(e);
-        });
+   window.Echo.channel(`chat.${trxId}`)
+    .listen('.chat.message.new', (e) => {
+        console.log('Pesan baru diterima:', e);
+        addMessageToChat(e); // Pastikan hanya menambahkan pesan jika belum ada
+    });
 
     // Tangani pengiriman formulir
     messageForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        const message = messageInput.value.trim();
-        if (!message) return; // Validasi input kosong
-        const trx = this.querySelector('input[name="trx"]').value;
-        const role = this.querySelector('input[name="role"]').value;
-        const timestamp = new Date().toISOString();
+    event.preventDefault();
+    const message = messageInput.value.trim();
+    if (!message) return; // Validasi input kosong
+    const trx = this.querySelector('input[name="trx"]').value;
+    const role = this.querySelector('input[name="role"]').value;
+    const timestamp = new Date().toISOString();
 
-        // Tambahkan pesan ke tampilan secara lokal
-        addMessageToChat({ sender: role, message: message, timestamp: timestamp }, true);
-        messageInput.value = ''; // Bersihkan input
+    // Tambahkan pesan ke tampilan secara lokal hanya jika belum ada
+    addMessageToChat({ sender: role, message: message, timestamp: timestamp }, true);
+    messageInput.value = ''; // Bersihkan input
 
-        // Kirim pesan ke server menggunakan Fetch API
-        fetch(this.action, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRF-TOKEN': this.querySelector('input[name="_token"]').value,
-            },
-            body: `trx=${encodeURIComponent(trx)}&role=${encodeURIComponent(role)}&message=${encodeURIComponent(message)}&timestamp=${encodeURIComponent(timestamp)}`
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Pesan berhasil dikirim:', data);
-        })
-        .catch(error => {
-            console.error('Error mengirim pesan:', error);
-        });
+    // Kirim pesan ke server menggunakan Fetch API
+    fetch(this.action, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRF-TOKEN': this.querySelector('input[name="_token"]').value,
+        },
+        body: `trx=${encodeURIComponent(trx)}&role=${encodeURIComponent(role)}&message=${encodeURIComponent(message)}&timestamp=${encodeURIComponent(timestamp)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Pesan berhasil dikirim:', data);
+    })
+    .catch(error => {
+        console.error('Error mengirim pesan:', error);
     });
+});
 
     // Scroll ke bagian bawah chat saat halaman pertama kali dimuat
     chatContainer.scrollTop = chatContainer.scrollHeight;

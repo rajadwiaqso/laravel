@@ -21,38 +21,48 @@
                 <div class="table-responsive">
                     <table class="table table-striped table-bordered">
                         <thead>
-                            <tr>
-                                <th>Nama</th>
-                                <th>Email</th>
-                                <th>KTP</th>
-                                <th>Pesan</th>
-                                <th>Asal</th>
-                                <th class="text-center">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($forms as $form)
-                                <tr>
-                                    <td>{{ $form->name }}</td>
-                                    <td>{{ $form->email }}</td>
-                                    <td><img src="{{ asset('storage/images/form/' . $form->img) }}" alt="{{ $form->img }}" style="max-height: 80px;"></td>
-                                    <td>{{ $form->message }}</td>
-                                    <td>{{ $form->from }}</td>
-                                    <td class="text-center">
-                                        <form action="{{ route('form.accept', $form->id) }}" method="post" class="d-inline-block">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-success">Terima</button>
-                                        </form>
-                                        <form action="{{ route('form.decline', $form->id) }}" method="post" class="d-inline-block ms-1">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-danger">Tolak</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="6" class="text-center">Tidak ada pengajuan baru.</td></tr>
-                            @endforelse
-                        </tbody>
+    <tr>
+        <th>Nama Lengkap</th>
+        <th>Nama Toko</th>
+        <th>Nomor Telepon</th>
+        <th>KTP</th>
+        <th>NIK</th>
+        <th>Pesan</th>
+        <th>Email Pengirim</th>
+        <th class="text-center">Aksi</th>
+    </tr>
+</thead>
+<tbody>
+    @forelse ($forms as $form)
+        <tr>
+            <td>{{ $form->fullname }}</td>
+            <td>{{ $form->name }}</td>
+            <td>{{ $form->phone }}</td>
+            <td>
+                @if($form->img)
+                    <img src="{{ asset('storage/images/form/' . $form->img) }}" alt="{{ $form->img }}" style="max-height: 80px;">
+                @else
+                    -
+                @endif
+            </td>
+            <td>{{ $form->nik ?? '-' }}</td>
+            <td>{{ $form->message }}</td>
+            <td>{{ $form->from }}</td>
+            <td class="text-center">
+                <form action="{{ route('form.accept', $form->id) }}" method="post" class="d-inline-block">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-success">Terima</button>
+                </form>
+                <form action="{{ route('form.decline', $form->id) }}" method="post" class="d-inline-block ms-1">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-danger">Tolak</button>
+                </form>
+            </td>
+        </tr>
+    @empty
+        <tr><td colspan="8" class="text-center">Tidak ada pengajuan baru.</td></tr>
+    @endforelse
+</tbody>
                     </table>
                 </div>
             </div>

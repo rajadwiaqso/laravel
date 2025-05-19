@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>{{env('APP_NAME')}}</title>
+    <title>{{config('app.name')}}</title>
 
     @vite(['resources/js/app.js'])
 
@@ -79,7 +79,7 @@
         }
 
         footer .social-icons i:hover {
-            color: #d1cfff;
+          
             transform: scale(1.2);
         }
         .dropdown-item {
@@ -101,7 +101,7 @@
         <div class="container">
             <!-- Brand/Logo -->
             <a class="navbar-brand fw-bold" href="{{route('index')}}">
-                <i class="bi bi-shop"></i> {{env('APP_NAME')}}
+                <i class="bi bi-shop"></i> {{config('app.name')}}
             </a>
 
             <!-- Toggle Button -->
@@ -182,10 +182,21 @@
                 </ul>
                 @endif
             </li>
-            @if (Auth::check() && (Auth::user()->role == 'buyer'))
+            @if (Auth::check() && (Auth::user()->is_seller == 0))
             <li class="nav-item">
                 <a class="btn btn-warning mx-2" href="{{route('seller.form')}}">Daftar sebagai Seller</a>
             </li>
+            @elseif(Auth::check() && (Auth::user()->is_seller == 1) && (Auth::user()->role == 'buyer'))
+
+               <form action="{{route('choose.seller')}}" method="post">
+             @csrf
+             <button type="submit" class="btn btn-warning mx-2">Pindah sebagai Seller</button>
+            </form>
+            @elseif(Auth::check() && (Auth::user()->is_seller == 1) && (Auth::user()->role == 'seller'))
+               <form action="{{route('choose.buyer')}}" method="post">
+             @csrf
+             <button type="submit" class="btn btn-warning mx-2">Pindah sebagai Buyer</button>
+            </form>
             @endif
                 </ul>
 
@@ -200,10 +211,10 @@
     <!-- Footer -->
     <footer class="text-center">
         <div class="container">
-            <p>&copy; 2025 {{env('APP_NAME')}}. All Rights Reserved.</p>
+            <p> {{config('app.name')}} &copy; {{ date('Y') }} <br> PT. Layanan Digital Raja All Rights Reserved.</p>
             <div class="social-icons">
                 <a href="#"><i class="bi bi-facebook"></i></a>
-                <a href="#"><i class="bi bi-twitter"></i></a>
+                <a href="#"><i class="bi bi-whatsapp"></i></a>
                 <a href="#"><i class="bi bi-instagram"></i></a>
             </div>
         </div>

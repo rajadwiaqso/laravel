@@ -17,6 +17,7 @@ use App\Models\Seller;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\SearchController; // Pastikan controller API ini ada
+use App\Http\Controllers\UserController;
 use App\Http\Middleware\PageMiddleware;
 use Illuminate\Support\Facades\Broadcast;
 
@@ -30,6 +31,9 @@ Route::middleware(PageMiddleware::class)->group(function () {
 Route::middleware(Verify::class)->group(function () {
    
 
+Route::get('/profile/{username}', [BuyerController::class, 'profileView'])->name('profile.view');
+ Route::get('/store/{store_name}', [SellerController::class, 'profileView'])->name('seller.profile.view');
+
 Route::get('/', [BuyerController::class, 'index'])->name('index');
 Route::get('/saldo', [BuyerController::class, 'checkSaldo'])->name('saldo');
 
@@ -39,13 +43,12 @@ Route::get('/products/search', [ProductController::class, 'searchProducts'])->na
 
 Route::get('/products/{category}', [ProductController::class, 'index'])->name('products.category');
 Route::get('/products/{category}/{store}/{product}/{id_product}', [ProductController::class, 'details'])->name('product.details');
-Route::post('/products/{category}/{store}/{product}/{id_product}/buy', [ProductController::class, 'buy'])->name('product.buy');
+
+
+Route::post('/payment/{category}/{store}/{product}/{id_product}', [ProductController::class, 'payment'])->name('buyer.payment')->middleware(BuyerMiddleware::class);
   
 });
 
-Route::get('/password/reset', [BuyerController::class, 'resetPasswordView'])->name('password.reset.view');
-Route::post('/password/reset/send-otp', [BuyerController::class, 'sendResetOtp'])->name('password.reset.sendOtp');
-Route::post('/password/reset', [BuyerController::class, 'resetPassword'])->name('password.reset');
 
 
 });
@@ -56,8 +59,21 @@ Route::post('/password/reset', [BuyerController::class, 'resetPassword'])->name(
 Route::middleware('auth')->group(function (){
 
     
+
+    Route::get('/password/reset', [BuyerController::class, 'resetPasswordView'])->name('password.reset.view');
+Route::post('/password/reset/send-otp', [BuyerController::class, 'sendResetOtp'])->name('password.reset.sendOtp');
+Route::post('/password/reset', [BuyerController::class, 'resetPassword'])->name('password.reset');
+Route::post('/password/reset/again', [BuyerController::class, 'sendResetOtpAgain'])->name('password.reset.again');
+
+
+    Route::get('/choose', [UserController::class, 'index'])->name('choose');
+    Route::post('/choose/buyer', [UserController::class, 'chooseBuyer'])->name('choose.buyer');
+    Route::post('/choose/seller', [UserController::class, 'chooseSeller'])->name('choose.seller');
+
+    
     Route::get('/verify', [BuyerController::class, 'verify'])->name('verify.view');
     Route::post('/verify-email', [BuyerController::class, 'verifyEmail'])->name('verify.email');
+    Route::post('/verify/resend', [BuyerController::class, 'resendVerify'])->name('verify.email.resend');
     Route::middleware(Verify::class)->group(function () {
  
 
@@ -71,6 +87,10 @@ Route::middleware('auth')->group(function (){
             broadcast(new ProductStockUpdated('51','12'))->toOthers();
             return 'hello';
         });
+
+        Route::post('/products/{category}/{store}/{product}/{id_product}/buy', [ProductController::class, 'buy'])->name('product.buy');
+        Route::get('/payment/success/{trx}', [ProductController::class, 'paymentSuccess'])->name('payment.success');
+
         
         Route::get('/seller/form', [SellerController::class, 'form'])->name('seller.form');
         Route::post('/seller/post', [SellerController::class, 'post'])->name('seller.post');
@@ -97,6 +117,8 @@ Route::middleware('auth')->group(function (){
 
     Route::get('/profile', [BuyerController::class, 'profile'])->name('profile');
     Route::post('/profile/post/{id}', [BuyerController::class, 'updateProfile'])->name('profile.post');
+    Route::post('/profile/picture/{id}', [BuyerController::class, 'updateProfilePicture'])->name('profile.picture');
+    Route::post('/seller/profile/picture/{id}', [SellerController::class, 'updateProfilePicture'])->name('seller.profile.picture');
     Route::post('/profile/change-password/{id}', [BuyerController::class, 'changePassword'])->name('password.update');
 
 
@@ -155,7 +177,7 @@ Route::middleware('auth')->group(function (){
 
 Route::middleware('guest')->group(function (){
 
- 
+
 
     Route::get('/signup', [BuyerController::class, 'signUpView'])->name('signup.view');
     Route::post('/signup/post', [BuyerController::class, 'signUpPost'])->name('signup.post');

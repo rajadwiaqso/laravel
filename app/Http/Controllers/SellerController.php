@@ -10,12 +10,17 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class SellerController extends Controller
 {
     public function index(){
         $email = Auth::user()->email;
         $seller = Seller::where('email', $email)->first();
+        if (!$seller) {
+        // Bisa redirect ke halaman lain atau tampilkan pesan error
+        abort(404, 'Seller data not found. Silakan lengkapi data seller Anda.');
+    }
         $orders = $this->ordersTotal();
         $confirmed = $this->confirmedTotal();
         $done = $this->doneTotal();
@@ -38,10 +43,59 @@ class SellerController extends Controller
             })->toArray(),
             'data' => $sales->pluck('total')->toArray()
         ];
+
+            //    session(['user_type' => 'seller']);
     
         return view('seller.index', compact('total','seller', 'orders', 'confirmed', 'done', 'reject', 'salesData'));
         
     }
+
+    public function profileView($store_name){
+    $seller = seller::where('name', $store_name)->first();
+    if (is_null($seller)) {
+        abort(404, 'Seller not found');
+    }
+    $user = User::where('email', $seller->email)->first();
+    if (is_null($user)){
+        abort(404, 'User not found');
+    }
+    $products = Product::where('store_name', $store_name)->get();
+    return view('seller.profile', compact('seller', 'user', 'products'));
+}
+
+   public function updateProfilePicture(Request $request, $id)
+    {
+        $user = Seller::find($id);
+
+        if ($id ==  $user->id){
+            $request->validate([
+                'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif',
+            ]);
+
+            // dd($request->profile_picture);
+            // Hapus gambar lama jika ada
+            if ($user->profile_picture != 'default.jpg') {
+                Storage::delete('images/profile/' . $user->profile_picture);
+            }
+
+            // Simpan gambar baru
+            $imageName = Auth::user()->username . '_' . time() . '.' . $request->profile_picture->extension();
+            $request->profile_picture->storeAs('images/profile', $imageName);
+
+            // dd($imageName);
+
+            // Update nama gambar di database
+            $user->profile_picture = $imageName;
+            $user->save();
+
+            return redirect()->back()->with('success', 'Profile picture updated successfully.');
+        }
+        else{
+            return redirect()->route(404);
+        }
+    }
+  
+
     public function form(){
         $form = SellerForm::where('from', Auth::user()->email)->first();
         if (is_null($form)){
@@ -53,20 +107,51 @@ class SellerController extends Controller
         return view('seller', compact('data'));
     }
     
-    public function post(Request $request){
-       $form = new SellerForm();
-       $form->name = $request->name;
-       $form->email = $request->email;
+   public function post(Request $request)
+{
+     $validated = $request->validate([
+        'fullname' => 'required|string|max:255',
+        'name'     => [
+            'required',
+            'string',
+            'max:255',
+            // Pastikan nama toko unik di seller_forms dan sellers
+            function ($attribute, $value, $fail) {
+                if (\App\Models\SellerForm::where('name', $value)->exists() ||
+                    \App\Models\seller::where('name', $value)->exists()) {
+                    $fail('Nama toko sudah digunakan. Silakan pilih nama lain.');
+                }
+            }
+        ],
+        'phone'    => 'required|string|max:20',
+        'ktp'      => 'required|boolean',
+        'nik'      => 'nullable|required_if:ktp,1|string|max:30',
+        'img'      => 'nullable|required_if:ktp,1|image|mimes:jpg,jpeg,png|max:2048',
+        'message'  => 'nullable|string',
+    ]);
 
-       $fname = uniqid() . '.' . $request->img->extension();
-        $request->img->storeAs('images/form', $fname);
+    $form = new SellerForm();
+    $form->fullname = $validated['fullname'];
+    $form->name = $validated['name'];
+    $form->phone = $validated['phone'];
+    $form->ktp = $validated['ktp'];
+    $form->nik = $validated['ktp'] ? $validated['nik'] : null;
+    $form->message = $validated['message'] ?? null;
+    $form->from = Auth::user()->email;
 
-       $form->img = $fname;
-       $form->message = $request->message;
-       $form->from = Auth::user()->email;
-       $form->save();
-        return redirect()->route('index');
+    // Handle file upload jika ada
+    if ($request->hasFile('img') && $validated['ktp']) {
+        $fname = uniqid() . '.' . $request->img->extension();
+        $request->img->storeAs('images/form', $fname, 'public');
+        $form->img = $fname;
+    } else {
+        $form->img = null;
     }
+
+    $form->save();
+
+    return redirect()->route('index');
+}
 
     public function ordersView(Request $request){
         $perPage = $request->input('perPage', 10);
@@ -151,7 +236,7 @@ class SellerController extends Controller
         $trx->status = 'confirm';
         $trx->save();
 
-        $seller->diproses += $trx->price;
+        $seller->diproses += $trx->total;   
         $seller->save();
 
         return redirect()->back();

@@ -14,11 +14,11 @@
                     <div class="row align-items-center">
                         <div class="col-md-2">
                             <h6 class="mb-1"><small class="text-muted">Penjual:</small></h6>
-                            <p class="mb-0">{{ $order->name }}</p>
+                            <a href="{{route('seller.profile.view', $order->name)}}" class="mb-0">{{ $order->name }}</a>
                         </div>
                         <div class="col-md-3">
                             <h6 class="mb-1"><small class="text-muted">Produk:</small></h6>
-                            <p class="mb-0">{{ $order->product }}</p>
+                            <a href="{{ route('product.details', ['category' => $order->category, 'store' => $order->name, 'product' => $order->product, 'id_product' => $order->id]) }}" class="mb-0">{{ $order->product }}</a>
                         </div>
                         <div class="col-md-2">
                             <h6 class="mb-1"><small class="text-muted">Harga:</small></h6>
@@ -27,8 +27,13 @@
                         <div class="col-md-2">
                             <h6 class="mb-1"><small class="text-muted">Status:</small></h6>
                             @php
-                                $statusClass = '';
+                                $statusClass = '';  
                                 $statusIcon = '';
+                                if (isset($order->status_date['from']) && $order->status_date['from'] == Auth::user()->email) {
+                                    $statusClass = 'badge bg-danger';
+                                    $statusIcon = 'bi bi-clock';
+                                }
+                                else{
                                 switch ($order->status) {
                                     case 'pending':
                                         $statusClass = 'badge bg-warning text-dark';
@@ -55,6 +60,7 @@
                                         $statusIcon = 'bi bi-question-circle';
                                         break;
                                 }
+                            }
                             @endphp
                             <span class="{{ $statusClass }}">
                                 <i class="{{ $statusIcon }} me-1"></i>{{ ucfirst($order->status) }}
@@ -72,7 +78,7 @@
                                 <button class="btn btn-sm btn-success"><i class="bi bi-check-circle-fill me-1"></i> Selesaikan</button>
                             </form>
                         @endif
-                            @if ($order->status == 'done' && !is_int($order->rating))
+                            @if ($order->status == 'done' && $order->rating < 1)
                                 <a href="{{ route('buyer.rating', $order->trx_id) }}" class="btn btn-sm btn-outline-secondary me-2">
                                     <i class="bi bi-star-fill me-1"></i> Beri Rating
                                 </a>
@@ -100,10 +106,33 @@
                             <p><strong>Penjual:</strong> {{ $order->name }}</p>
                             <p><strong>Produk:</strong> {{ $order->product }}</p>
                             <p><strong>Harga:</strong> Rp. {{ number_format($order->price) }}</p>
+                            <p><strong>Jumlah:</strong> {{ $order->quantity }}</p>
+                            <p><strong>Total:</strong> Rp. {{ number_format($order->total) }}</p>
                             <p><strong>Kategori:</strong> {{ $order->category }}</p>
                             <p><strong>ID Pesanan:</strong> {{ $order->trx_id }}</p>
                             <p><strong>Status:</strong> <span class="{{ $statusClass }}">{{ ucfirst($order->status) }}</span></p>
                             <p><strong>Tanggal Pemesanan:</strong> {{ $order->created_at->format('d M Y, H:i') }}</p>
+                            <p><strong>Rating:</strong>
+                           @if ($order->status == 'done')
+                                @if(!is_int($order->rating))
+                                    @if (!is_null($order->rating))
+                                        <div>
+                                            <div class="rating">
+                                                @for ($i = 0; $i < $order->rating['rating']; $i++)
+                                                    <span class="star active">&#9733;</span>
+                                                @endfor
+                                                @for ($i = $order->rating['rating']; $i < 5; $i++)
+                                                    <span class="star">&#9733;</span>
+                                                @endfor
+                                            </div>
+                                            <p class=""><small class="text-muted">Pesan: {{ $order->rating['message'] }}</small></p>
+                                        </div>
+                                    @endif
+                                @else
+                                    <span>Belum ada rating</span>
+                                @endif
+                            @endif
+                            </p>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>

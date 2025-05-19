@@ -76,11 +76,22 @@
                     <form action="{{ route('signup.post') }}" method="post">
                         @csrf
                         <div class="mb-4">
-                            <label for="name" class="form-label">Nama:</label>
+                            <label for="name" class="form-label">Name:</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-person"></i></span>
                                 <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name') }}" required autofocus>
                                 @error('name')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+                        {{-- username --}}
+                        <div class="mb-4">
+                            <label for="username" class="form-label">Username:</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person-circle"></i></span>
+                                <input type="text" class="form-control @error('username') is-invalid @enderror" id="username" name="username" value="{{ old('username') }}" required>
+                                @error('username')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>

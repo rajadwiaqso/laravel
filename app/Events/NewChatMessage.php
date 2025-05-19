@@ -56,4 +56,8 @@ class NewChatMessage implements ShouldBroadcast
     {
         return 'chat.message.new';
     }
+    public function dontBroadcastToCurrentUser()
+    {
+        return true; // Mencegah pengirim menerima event ini
+    }
 }

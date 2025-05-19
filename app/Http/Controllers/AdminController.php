@@ -16,22 +16,25 @@ class AdminController extends Controller
     }
     public function accept($id){
         $form = SellerForm::find($id);
-        $user = new User();
-        $user->name = $form->name;
-        $user->email = $form->email;
-        $user->role = 'seller';
-        $user->password = bcrypt('rajaa');
+
+       
+        $user = User::where('email', $form->from)->first();
+        $user->is_seller = true;
         $user->save();
         $form->delete();
         Storage::delete('images/form/' . $form->img);
 
         $seller = new seller();
         $seller->name = $form->name;
-        $seller->email = $form->email;
+        $seller->email = $form->from;
+        $seller->profile_picture = 'default.jpg';
         $seller->credits = 0;
         $seller->sold_total = 0;
         $seller->product_total = 0;
+        $seller->diproses = 0;
         $seller->save(); 
+
+        
 
         return redirect()->back();
     }

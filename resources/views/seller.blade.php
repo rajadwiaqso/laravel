@@ -13,29 +13,62 @@
                 @csrf
 
                 <div class="mb-3">
+                    <label for="fullname" class="form-label">Nama Panjang:</label>
+                    <input type="text" class="form-control" id="fullname" name="fullname" required>
+                    @error('fullname')
+                        <div class="text-danger">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
                     <label for="name" class="form-label">Nama Toko:</label>
                     <input type="text" class="form-control" id="name" name="name" required>
                     @error('name')
                         <div class="text-danger">{{ $message }}</div>
                     @enderror
                 </div>
-
+                {{-- nomer telpon --}}
+                
                 <div class="mb-3">
-                    <label for="email" class="form-label">Email Toko:</label>
-                    <input type="email" class="form-control" id="email" name="email" required>
-                    @error('email')
+                    <label for="phone" class="form-label">Nomor Telepon:</label>
+                    <input type="text" class="form-control" id="phone" name="phone" required>
+                    @error('phone')
                         <div class="text-danger">{{ $message }}</div>
                     @enderror
                 </div>
 
+                {{-- punya ktp atau tidak --}}
                 <div class="mb-3">
-                    <label for="img" class="form-label">Upload KTP/Identitas:</label>
-                    <input type="file" class="form-control" id="img" name="img" accept="image/*" required>
-                    <small class="form-text text-muted">Format file: JPG, JPEG, PNG. Ukuran maksimal: [sebutkan ukuran jika ada].</small>
-                    @error('img')
-                        <div class="text-danger">{{ $message }}</div>
-                    @enderror
-                </div>
+    <label for="ktp" class="form-label">Apakah Anda Memiliki KTP?</label>
+    <select class="form-select" id="ktp" name="ktp" required>
+        <option value="" disabled selected>Pilih</option>
+        <option value="1">Ya</option>
+        <option value="0">Tidak</option>
+    </select>
+    @error('ktp')
+        <div class="text-danger">{{ $message }}</div>
+    @enderror
+</div>
+
+{{-- jika memiliki ktp maka akan muncul input nik dan upload ktp --}}
+<div id="ktp-fields" style="display: none;">
+    <div class="mb-3">
+        <label for="nik" class="form-label">NIK:</label>
+        <input type="text" class="form-control" id="nik" name="nik">
+        @error('nik')
+            <div class="text-danger">{{ $message }}</div>
+        @enderror
+    </div>
+
+    <div class="mb-3">
+        <label for="img" class="form-label">Upload KTP/Identitas:</label>
+        <input type="file" class="form-control" id="img" name="img" accept="image/*">
+        <small class="form-text text-muted">Format file: JPG, JPEG, PNG.</small>
+        @error('img')
+            <div class="text-danger">{{ $message }}</div>
+        @enderror
+    </div>
+</div>
 
                 <div class="mb-3">
                     <label for="message" class="form-label">Pesan Tambahan (Opsional):</label>
@@ -45,8 +78,36 @@
                     @enderror
                 </div>
 
-                <button type="submit" class="btn btn-primary">Submit Permohonan</button>
+                <button type="submit" class="btn btn-primary">Kirim Permohonan</button>
             </form>
         @endif
     </div>
+@endsection
+
+@section('script')
+   <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ktpSelect = document.getElementById('ktp');
+        const ktpFields = document.getElementById('ktp-fields');
+        const nikInput = document.getElementById('nik');
+        const imgInput = document.getElementById('img');
+
+        function toggleKtpFields() {
+            if (ktpSelect.value === "1") {
+                ktpFields.style.display = 'block';
+                nikInput.required = true;
+                imgInput.required = true;
+            } else {
+                ktpFields.style.display = 'none';
+                nikInput.required = false;
+                imgInput.required = false;
+            }
+        }
+
+        ktpSelect.addEventListener('change', toggleKtpFields);
+
+        
+        toggleKtpFields();
+    });
+</script>
 @endsection

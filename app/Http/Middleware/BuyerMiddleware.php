@@ -21,6 +21,10 @@ class BuyerMiddleware
         //     return redirect()->route('verify.view');
         // }
         // else{
+
+        if(!Auth::check()){
+            return redirect()->route('signin.view');
+        }
         
         
         if(Auth::user()->role == 'buyer'){
